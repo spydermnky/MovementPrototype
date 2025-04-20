@@ -6,18 +6,18 @@ public class PlayerCamera : MonoBehaviour
     public float sensitivityX;
     public float sensitivityY;
 
-    public Transform playerOrientation;
+    public Transform orientation;
 
     float rotationX;
     float rotationY;
 
-    void Start()
+    private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
-    void Update()
+    private void Update()
     {
         //mouse input
         float mouseX = Input.GetAxisRaw("Mouse X") * Time.deltaTime * sensitivityX;
@@ -29,6 +29,6 @@ public class PlayerCamera : MonoBehaviour
 
         //cam and orientation
         transform.rotation = Quaternion.Euler(rotationX, rotationY, 0); //rotate cam along both axes
-        playerOrientation.rotation = Quaternion.Euler(0, rotationY, 0); //rotate player along y axis
+        orientation.rotation = Quaternion.Euler(0, rotationY, 0); //rotate player along y axis
     }
 }
