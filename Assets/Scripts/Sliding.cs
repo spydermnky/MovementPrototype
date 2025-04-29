@@ -8,15 +8,17 @@ public class Sliding : MonoBehaviour
     private Rigidbody rb;
     private PlayerMovement pm;
 
-    [Header("Sliding")]
+    [Header("Sliding Params")]
     public float maxSlideTime;
-    public float slideForce;
+    public float slideForce = 200f;
     private float slideTimer;
 
     public float slideYScale;
     private float startYScale;
 
-    [Header("Input")]
+    public float maxSlideSpeed = 12f;
+
+    [Header("Input Params")]
     public KeyCode slideKey = KeyCode.LeftControl;
     private float horizontalInput;
     private float verticalInput;
@@ -67,15 +69,15 @@ public class Sliding : MonoBehaviour
         if (!pm.OnSlope() || rb.linearVelocity.y > -0.1f)
         {
             rb.AddForce(inputDirection.normalized * slideForce, ForceMode.Force);
-            slideTimer -= Time.deltaTime;
         }
-
         else
         {
             rb.AddForce(pm.GetSlopeMoveDirection(inputDirection) * slideForce, ForceMode.Force);
         }
+        
+        RestrictSlideSpeed();
 
-
+        slideTimer -= Time.deltaTime;
         if (slideTimer <= 0)
         {
             StopSlide();
@@ -86,5 +88,16 @@ public class Sliding : MonoBehaviour
     {
         pm.sliding = false;
         playerObj.localScale = new Vector3(playerObj.localScale.x, startYScale, playerObj.localScale.z);
+    }
+
+    private void RestrictSlideSpeed()
+    {
+        Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        
+        if (flatVel.magnitude > maxSlideSpeed)
+        {
+            Vector3 limitedVel = flatVel.normalized * maxSlideSpeed;
+            rb.linearVelocity = new Vector3(limitedVel.x, rb.linearVelocity.y, limitedVel.z);
+        }
     }
 }

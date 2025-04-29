@@ -4,7 +4,7 @@ using System.Collections;
 
 public class PlayerMovement : MonoBehaviour
 {
-    [Header("Movement")]
+    [Header("Movement Params")]
     private float moveSpeed;
     public float walkSpeed;
     public float sprintSpeed;
@@ -17,31 +17,37 @@ public class PlayerMovement : MonoBehaviour
     public float speedIncreaseMultiplier;
     public float slopeIncreaseMultiplier;
 
-    [Header("Jumping")]
+    public float wallrunSpeed;
+
+    [Header("Jumping Params")]
     public float jumpForce;
     public float jumpCooldown;
     public float airMultiplier;
     bool readyToJump; 
 
-    [Header("Crouching")]
+    [Header("Crouching Params")]
     public float crouchSpeed;
     public float crouchYScale;
     private float startYScale;
 
-    [Header("KeyBinds")]
+    [Header("Keybind Params")]
     public KeyCode jumpKey = KeyCode.Space;
     public KeyCode sprintKey = KeyCode.LeftShift;
     public KeyCode crouchKey = KeyCode.C;
 
-    [Header("Grounded")]
+    [Header("Ground Params")]
     public float playerHeight;
     public LayerMask whatIsGround;
     bool grounded;
 
-    [Header("Slope Handling")]
+    [Header("Slope Params")]
     public float maxSlopeAngle;
     private RaycastHit slopeHit;
     private bool exitingSlope;
+
+    [Header("Force Params")]
+    public float forceMultiplier = 5f;
+    public float maxVelMultiplier = 1.2f;
 
     public Transform orientation;
 
@@ -57,10 +63,13 @@ public class PlayerMovement : MonoBehaviour
         sprinting,
         crouching,
         sliding,
+        wallrunning,
         air
     }
 
     public bool sliding; 
+    public bool crouching;
+    public bool wallrunning;
 
     void Start()
     {
@@ -74,15 +83,9 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // ground check 
-        //grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, whatIsGround);
         grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, whatIsGround);
-        
         MyInput();
-        SpeedControl();
         StateHandler();
-
-        // handle drag AKA linearDamping
         if (grounded)
         {
             rb.linearDamping = groundDrag;
@@ -96,6 +99,7 @@ public class PlayerMovement : MonoBehaviour
     private void FixedUpdate()
     {
         MovePlayer();
+        SpeedControl();
     }
 
     private void MyInput()
@@ -122,7 +126,11 @@ public class PlayerMovement : MonoBehaviour
 
     private void StateHandler()
     {
-        //sliding
+        if (wallrunning)
+        {
+            state = MovementState.wallrunning;
+            desiredMoveSpeed = wallrunSpeed;
+        }
         if (sliding)
         {
             state = MovementState.sliding;
@@ -136,33 +144,25 @@ public class PlayerMovement : MonoBehaviour
                 desiredMoveSpeed = sprintSpeed;
             }
         }
-
-        //crouching
         else if (Input.GetKey(crouchKey))
         {
             state = MovementState.crouching;
             desiredMoveSpeed = crouchSpeed;
         }
-        //sprinting 
         else if (grounded && Input.GetKey(sprintKey))
         {
             state = MovementState.sprinting;
             desiredMoveSpeed = sprintSpeed;
-        }
-        //walking 
+        } 
         else if (grounded)
         {
             state = MovementState.walking;
             desiredMoveSpeed = walkSpeed;
         }
-        //airborne
         else
         {
             state = MovementState.air;
         }
-        
-        //no gravity when on slope
-        //rb.useGravity = !OnSlope();
 
         if (Mathf.Abs(desiredMoveSpeed - lastDesiredMoveSpeed) > 4f && moveSpeed != 0)
         {
@@ -187,7 +187,6 @@ public class PlayerMovement : MonoBehaviour
         {
             moveSpeed = Mathf.Lerp(startValue, desiredMoveSpeed, time / difference);
 
-            //steeper slope = more acceleration
             if (OnSlope())
             {
                 float slopeAngle = Vector3.Angle(Vector3.up, slopeHit.normal);
@@ -229,31 +228,20 @@ public class PlayerMovement : MonoBehaviour
 
     private void SpeedControl()
     {
-        if (OnSlope() && !exitingSlope)
-        {
-            //limit speed on slope
-            if (rb.linearVelocity.magnitude > moveSpeed)
-            {
-                rb.linearVelocity = rb.linearVelocity.normalized * moveSpeed;
-            }
+        Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
-            //limit speed on ground or air
-            else
-            {
-                Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-                if (flatVel.magnitude > moveSpeed)
-                {
-                    Vector3 limitedVel = flatVel.normalized * moveSpeed; //calculate what max velocity would be
-                    rb.linearVelocity = new Vector3(limitedVel.x , rb.linearVelocity.y, limitedVel.z); //apply max velocity
-                }
-            }
+        float maxPermittedSpeed = moveSpeed * maxVelMultiplier;
+
+        if (flatVel.magnitude > maxPermittedSpeed)
+        {
+            Vector3 limitVel = flatVel.normalized * maxPermittedSpeed;
+            rb.linearVelocity = new Vector3(limitVel.x, rb.linearVelocity.y, limitVel.z);
         }
     }
 
     private void Jump()
     {
         exitingSlope = true;
-        // reset y velocity to jump same height each time
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         
         rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
